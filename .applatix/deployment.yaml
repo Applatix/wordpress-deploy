@@ -1,0 +1,219 @@
+---
+type: service_template
+subtype: container
+name: deployment-container
+container:
+  resources:
+    mem_mib: 750
+    cpu_cores: 0.3
+  image: "applatix/wordpress"
+  docker_options:
+  readiness_probe:
+    exec:
+      command: "%%PROBE_CMD%%"
+    initial_delay_seconds: 30
+    timeout_seconds: 5
+  liveness_probe:
+    exec:
+      command: "%%PROBE_CMD%%"
+    initial_delay_seconds: 30
+    timeout_seconds: 5
+inputs:
+  artifacts:
+    - from: "%%code%%"
+      path: "/src"
+  parameters:
+    code:
+    CMD:
+      default: sh -c 'sleep 10000'
+    PROBE_CMD:
+      default: sh -c 'ls -l /src'
+labels:
+  "release": "M7"
+
+---
+type: service_template
+subtype: container
+name: deployment-container-fixture
+container:
+  resources:
+    mem_mib: 750
+    cpu_cores: 0.3
+  image: "httpd:latest"
+  docker_options:
+  command: sh -c 'sleep 1000000 && %%CMD1%% && %%CMD2%% && %%CMD3%%'
+  readiness_probe:
+    exec:
+      command: "%%PROBE_CMD%%"
+    initial_delay_seconds: 30
+    timeout_seconds: 5
+  liveness_probe:
+    exec:
+      command: "%%PROBE_CMD%%"
+    initial_delay_seconds: 30
+    timeout_seconds: 5
+inputs:
+  artifacts:
+    - from: "%%code%%"
+      path: "/src"
+  parameters:
+    code:
+    CMD:
+      default: sh -c 'sleep 10000'
+    PROBE_CMD:
+      default: sh -c 'ls -l /src'
+    CMD1:
+    CMD2:
+    CMD3:
+labels:
+  "release": "M7"
+
+---
+type: service_template
+subtype: deployment
+name: deployment-example
+inputs:
+  parameters:
+    code:
+      default: "%%session.artifacts%%"
+    appname:
+      default: "test-app"
+    deployname:
+      default: "test-deploy"
+    domain:
+      default: "app.applatix.com"
+application:
+  name: "%%appname%%"
+deployment:
+  name: "%%deployname%%"
+scale:
+  min: 2
+external_routes:
+  - name: webapp
+    dns_prefix:
+    dns_domain: "%%domain%%"
+    target_port: 80
+    redirect_http_to_https: true
+    ip_white_list:
+      - 0.0.0.0/0
+internal_routes:
+  - name: web-internal
+    ports:
+      - name: http
+        port: 80
+        target_port: 80
+containers:
+  - server:
+      template: deployment-container
+      parameters:
+        CMD: sh -c 'sleep 99999999'
+        PROBE_CMD: sh -c 'ls -l /src'
+annotations:
+  "ax_ea_hack": "hack"
+labels:
+  "release": "M7"
+
+---
+type: service_template
+subtype: deployment
+name: deployment-example-fixture
+inputs:
+  parameters:
+    code:
+      default: "%%session.artifacts%%"
+    appname:
+      default: "test-app"
+    deployname:
+      default: "test-deploy"
+    domain:
+      default: "app.applatix.net"
+application:
+  name: "%%appname%%"
+deployment:
+  name: "%%deployname%%"
+fixtures:
+- fix1:
+    category: "category"
+    attributes:
+      "key1": "a"
+  fix2:
+    category: "category"
+    attributes:
+      "key1": "b"
+- fix3:
+    category: "category"
+    attributes:
+      "key1": "c"
+scale:
+  min: 2
+external_routes:
+  - name: webapp
+    dns_prefix:
+    dns_domain: "%%domain%%"
+    target_port: 80
+    redirect_http_to_https: true
+    ip_white_list:
+      - 0.0.0.0/0
+internal_routes:
+  - name: web-internal
+    ports:
+      - name: http
+        port: 80
+        target_port: 80
+containers:
+  - server:
+      template: deployment-container-fixture
+      parameters:
+        CMD: sh -c 'sleep 1'
+        PROBE_CMD: sh -c 'ls -l /src'
+        CMD1: "%%fixtures.fix1.key2%%"
+        CMD2: "%%fixtures.fix2.key2%%"
+        CMD3: "%%fixtures.fix3.key2%%"
+
+---
+type: service_template
+subtype: workflow
+name: deployment-workflow
+inputs:
+  parameters:
+    commit:
+      default: "%%session.commit%%"
+    repo:
+      default: "%%session.repo%%"
+    appname:
+      default: "wordpress-app"
+    deployname:
+      default: "wordpress-deploy"
+    domain:
+      default: "applatix.com"
+steps:
+  - checkout:
+      template: axscm-checkout
+  - deploy:
+      template: deployment-example
+      parameters:
+        code: "%%steps.checkout.code%%"
+
+---
+type: service_template
+subtype: workflow
+name: deployment-workflow-fixture
+inputs:
+  parameters:
+    commit:
+      default: "%%session.commit%%"
+    repo:
+      default: "%%session.repo%%"
+    appname:
+      default: "wordpress-app"
+    deployname:
+      default: "wordpress-deploy"
+    domain:
+      default: "applatix.com"
+steps:
+  - checkout:
+      template: axscm-checkout
+  - deploy:
+      template: deployment-example-fixture
+      parameters:
+        code: "%%steps.checkout.code%%"
