@@ -1,6 +1,5 @@
 ---
-type: service_template
-subtype: container
+type: container
 name: deployment-container
 container:
   resources:
@@ -30,8 +29,7 @@ labels:
   "release": "M7"
 
 ---
-type: service_template
-subtype: deployment
+type: deployment
 name: deployment-example
 inputs:
   parameters:
@@ -70,8 +68,7 @@ containers:
         PROBE_CMD: sh -c 'ls -l /src'
 
 ---
-type: service_template
-subtype: workflow
+type: workflow
 name: deployment-workflow
 inputs:
   parameters:
